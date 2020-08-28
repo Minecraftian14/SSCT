@@ -16,7 +16,7 @@ public class Server {
 
     Condition joinCondition;
     ServerSocket socket;
-    private ScheduledExecutorService ex = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     HashSet<Client> clients = new HashSet<>();
     HashSet<ClientJoinListener> clientJoinEventListeners = new HashSet<>();
@@ -59,32 +59,43 @@ public class Server {
             }, 0, 1, TimeUnit.SECONDS);
 
         }).start();
-        ex.scheduleAtFixedRate(this::read, 0, 10, TimeUnit.MILLISECONDS);
+        executor.scheduleAtFixedRate(this::read, 0, 10, TimeUnit.MILLISECONDS);
     }
 
     public void send(Object object) {
-        clients.forEach(client -> client.write(object));
+        clients.forEach(client -> client.send(object));
     }
 
     public void send(Predicate<Client> choose, Object object) {
         clients.forEach(client -> {
-            if (choose.test(client)) client.write(object);
+            if (choose.test(client)) client.send(object);
         });
     }
 
     private void read() {
-        /*clients.forEach(client -> {
+        clients.forEach(client -> {
             Object object = client.read();
             objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
-        });*/
+        });
     }
 
     public void addClientJoinListener(ClientJoinListener listener) {
         clientJoinEventListeners.add(listener);
     }
 
-    public void addObjectReceivedListener(ClientJoinListener listener) {
-        clientJoinEventListeners.add(listener);
+    public void addObjectReceivedListener(ObjectReceivedListener listener) {
+        objectReceivedListeners.add(listener);
     }
 
+    public void close() {
+        executor.shutdownNow();
+        clients.forEach(Client::close);
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        clients = null;
+        objectReceivedListeners = null;
+    }
 }

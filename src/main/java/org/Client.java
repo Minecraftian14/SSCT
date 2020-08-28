@@ -2,19 +2,28 @@ package org;
 
 import org.util.Registry;
 import org.util.SendField;
+import org.util.listeners.ObjectReceivedListener;
 
 import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.HashSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class Client {
 
     private Socket socket;
     private InputStream input;
     private OutputStream output;
+
+    private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    HashSet<ObjectReceivedListener> objectReceivedListeners = new HashSet<>();
 
     private int recursionDepth;
 
@@ -31,9 +40,19 @@ public class Client {
 
     public Client(int port, String ip) throws IOException {
         this(new Socket(ip, port));
+        executor.scheduleAtFixedRate(this::readForAll, 0, 10, TimeUnit.MILLISECONDS);
     }
 
-    public void write(Object object) {
+    public Client(int port, byte[] bytes) throws IOException {
+        this(port, InetAddress.getByAddress(bytes).getHostAddress());
+    }
+
+    private void readForAll() {
+        Object object = read();
+        objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
+    }
+
+    public void send(Object object) {
         try {
 
             Registry.check(object.getClass());
@@ -95,7 +114,7 @@ public class Client {
 
     }
 
-    public Object read() {
+    Object read() {
         try {
 
             byte[] header = new byte[4];
@@ -131,6 +150,7 @@ public class Client {
             for (Field field : objectClass.getDeclaredFields()) {
                 if (field.isAnnotationPresent(SendField.class)) {
                     byte[] buffer;
+                    field.setAccessible(true);
 
                     if (field.getType().equals(int.class)) {
                         pack.read(buffer = new byte[Integer.BYTES]);
@@ -189,5 +209,21 @@ public class Client {
 
     public void setRecursionDepth(int recursionDepth) {
         this.recursionDepth = recursionDepth;
+    }
+
+    public void addObjectReceivedListener(ObjectReceivedListener listener) {
+        objectReceivedListeners.add(listener);
+    }
+
+    public void close() {
+        executor.shutdownNow();
+        try {
+            input.close();
+            output.close();
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        objectReceivedListeners = null;
     }
 }

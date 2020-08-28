@@ -1,13 +1,14 @@
-package org.util;
+package org;
 
 import org.util.Condition;
+
+import java.util.Calendar;
+import java.util.Date;
 
 public class SimpleConditions {
 
     public static Condition stopAfterMilliseconds(long millis) {
-
         return new Condition() {
-
             boolean isNotInitialised = true;
             long startTime;
 
@@ -22,8 +23,14 @@ public class SimpleConditions {
                 isNotInitialised = false;
             }
         };
-
     }
 
+    public static Condition stopAfterSeconds(long seconds) {
+        return stopAfterMilliseconds(seconds * 1000);
+    }
+
+    public static Condition stopAtDate(Date target) {
+        return () -> new Date().getTime() < target.getTime();
+    }
 
 }
