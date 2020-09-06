@@ -2,7 +2,6 @@ package one;
 
 import org.Client;
 import org.Server;
-import org.util.Registry;
 import org.SimpleConditions;
 
 import java.io.IOException;
@@ -12,10 +11,6 @@ import static java.lang.System.*;
 public class main {
 
     public static void main(String[] args) throws IOException, IllegalAccessException, InterruptedException {
-
-        // P : in both S and C
-        Registry.add(PackageOne.class);
-        Registry.add(PackageTwo.class);
 
         // S
         Server server = Server.createServer(4768, SimpleConditions.stopAfterSeconds(10));

@@ -1,6 +1,6 @@
 package one;
 
-import org.util.SendField;
+import org.util.annotations.SendField;
 
 public class PackageTwo {
     @SendField

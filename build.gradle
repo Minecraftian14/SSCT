@@ -1,11 +1,69 @@
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
 }
 
 group 'SSCT'
-version '1.0-SNAPSHOT'
+version '1.0'
 
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_11
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'ssct'
+            from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = 'SSCT'
+                description = 'Just learning how to upload'
+                url = 'http://www.example.com/library'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'mcxiv'
+                        name = 'Minecraftian14'
+                        email = 'mcxiv14@gmail.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://example.com/my-library.git'
+                    developerConnection = 'scm:git:ssh://example.com/my-library.git'
+                    url = 'http://example.com/my-library/'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            url = 'https://github.com/Minecraftian14/SSCT'
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.mavenJava
+}
+
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
 
 repositories {
     mavenCentral()

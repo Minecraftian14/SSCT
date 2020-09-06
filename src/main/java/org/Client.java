@@ -1,16 +1,19 @@
 package org;
 
-import org.util.Registry;
-import org.util.SendField;
+import org.util.ByteUtil;
+import org.util.annotations.ByteString;
+import org.util.annotations.SendEveryField;
+import org.util.annotations.SendField;
+import org.util.annotations.ShortString;
 import org.util.listeners.ObjectReceivedListener;
 
 import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,10 +46,6 @@ public class Client {
         executor.scheduleAtFixedRate(this::readForAll, 0, 10, TimeUnit.MILLISECONDS);
     }
 
-    public Client(int port, byte[] bytes) throws IOException {
-        this(port, InetAddress.getByAddress(bytes).getHostAddress());
-    }
-
     private void readForAll() {
         Object object = read();
         objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
@@ -54,12 +53,9 @@ public class Client {
 
     public void send(Object object) {
         try {
-
-            Registry.check(object.getClass());
-
-            byte[] bytes = objectToByte(object, 0);
-            output.write(ByteBuffer.allocate(4).putInt(bytes.length).array()); // header
-            output.write(bytes);
+            byte[] data = objectToByte(object, 0);
+            output.write(ByteUtil.forInt(data.length));
+            output.write(data);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -69,59 +65,62 @@ public class Client {
     private byte[] objectToByte(Object object, int depth) {
         try (ByteArrayOutputStream parcel = new ByteArrayOutputStream()) {
 
-            Class<?> objectClass = object.getClass();
-            parcel.write(ByteBuffer.allocate(Integer.BYTES).putInt(objectClass.hashCode()).array());
+            Class<?> objectClass = Class.forName(object.getClass().getName());
+            parcel.write(ByteUtil.forString(objectClass.getName()));
 
             for (Field field : objectClass.getDeclaredFields()) {
-                if (field.isAnnotationPresent(SendField.class)) {
+                if (field.isAnnotationPresent(SendField.class) || objectClass.isAnnotationPresent(SendEveryField.class)) {
                     field.setAccessible(true);
-                    try {
-                        if (field.getType().equals(int.class)) {
-                            parcel.write(ByteBuffer.allocate(Integer.BYTES).putInt(field.getInt(object)).array());
+                    if (field.getType().equals(int.class)) {
+                        parcel.write(ByteUtil.forInt(field.getInt(object)));
 
-                        } else if (field.getType().equals(boolean.class)) {
-                            parcel.write(ByteBuffer.allocate(Character.BYTES).putChar(field.getBoolean(object) ? '1' : '0').array());
+                    } else if (field.getType().equals(boolean.class)) {
+                        parcel.write(ByteUtil.forBoolean(field.getBoolean(object)));
 
-                        } else if (field.getType().equals(long.class)) {
-                            parcel.write(ByteBuffer.allocate(Long.BYTES).putLong(field.getLong(object)).array());
+                    } else if (field.getType().equals(long.class)) {
+                        parcel.write(ByteUtil.forLong(field.getLong(object)));
 
-                        } else if (field.getType().equals(double.class)) {
-                            parcel.write(ByteBuffer.allocate(Double.BYTES).putDouble(field.getDouble(object)).array());
+                    } else if (field.getType().equals(double.class)) {
+                        parcel.write(ByteUtil.forDouble(field.getDouble(object)));
 
-                        } else if (field.getType().equals(String.class)) {
-                            byte[] bytes = ((String) field.get(object)).getBytes();
-                            parcel.write(ByteBuffer.allocate(4).putInt(bytes.length).array());
-                            parcel.write(bytes);
+                    } else if (field.getType().equals(String.class)) {
+                        parcel.write(ByteUtil.forString((String) field.get(object)));
 
-                        } else if (depth <= recursionDepth) {
-                            byte[] bytes = objectToByte(field.get(object), depth + 1);
-                            parcel.write(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
-                            parcel.write(bytes);
-                        }
-                    } catch (IllegalAccessException e) {
-                        System.out.println("Inaccessible Field in " + object);
+                    } else if (depth <= recursionDepth) {
+                        byte[] sub_data = objectToByte(field.get(object), depth + 1);
+                        parcel.write(ByteUtil.forInt(sub_data.length));
+                        parcel.write(sub_data);
                     }
+
+                } else if (field.isAnnotationPresent(ShortString.class)) {
+                    field.setAccessible(true);
+                    String s = (String) field.get(object);
+                    if (s.length() > Short.MAX_VALUE) s = s.substring(0, Short.MAX_VALUE);
+                    parcel.write(ByteUtil.forShortString(s));
+
+                } else if (field.isAnnotationPresent(ByteString.class)) {
+                    field.setAccessible(true);
+                    String s = (String) field.get(object);
+                    if (s.length() > 255) s = s.substring(0, 255);
+                    parcel.write(ByteUtil.forByteString(s));
                 }
             }
 
             return parcel.toByteArray();
-
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException | IllegalAccessException e) {
             e.printStackTrace();
         }
-
         return new byte[0];
-
     }
 
     Object read() {
         try {
 
-            byte[] header = new byte[4];
-            if (input.read(header) != 4) throw new RuntimeException();
-            int length = ByteBuffer.wrap(header).getInt();
+            byte[] buffer = new byte[4]; // to read the header, ie, an int telling how big is incoming data.
+            if (input.read(buffer) != 4) throw new RuntimeException("Header mismatch " + Arrays.toString(buffer));
+            int length = ByteUtil.asInt(buffer); // and so is this int as the result
 
-            byte[] bytes = new byte[length];
+            byte[] bytes = new byte[length]; // another buffer for data
             if (input.read(bytes) != length) throw new RuntimeException();
 
             ByteArrayInputStream pack = new ByteArrayInputStream(bytes);
@@ -137,20 +136,38 @@ public class Client {
     private Object bytesToObject(ByteArrayInputStream pack, int depth) {
         try {
 
-            byte[] header = new byte[4];
+            byte[] buffer = new byte[4]; // a buffer to read the length of an incoming String (the class name)
+            if (pack.read(buffer) != 4) throw new RuntimeException();
+            int length = ByteUtil.asInt(buffer);
 
-            if (pack.read(header) != 4) throw new RuntimeException();
-            int hash = ByteBuffer.wrap(header).getInt();
+            byte[] data = new byte[length];
+            if (pack.read(data) != length) throw new RuntimeException();
+            String classname = ByteUtil.asString(data, length);
 
-            Class<?> objectClass = Registry.get(hash);
+            Class<?> objectClass = Class.forName(classname);
             Constructor<?> objectConstructor = objectClass.getConstructors()[0];
             objectConstructor.setAccessible(true);
             Object object = objectConstructor.newInstance();
 
             for (Field field : objectClass.getDeclaredFields()) {
-                if (field.isAnnotationPresent(SendField.class)) {
-                    byte[] buffer;
-                    field.setAccessible(true);
+                field.setAccessible(true);
+
+                if (field.isAnnotationPresent(ShortString.class)) {
+                    pack.read(buffer = new byte[Short.BYTES]);
+                    length = ByteUtil.asShort(buffer);
+                    StringBuilder builder = new StringBuilder(length);
+                    for (int i = 0; i < length ; i++) builder.append((char) pack.read());
+                    field.set(object, builder.toString());
+
+                } else if (field.isAnnotationPresent(ByteString.class)) {
+                    pack.read(buffer = new byte[Byte.BYTES]);
+                    length = ByteUtil.asShort(buffer);
+                    if (length < 0) length += 256;
+                    StringBuilder builder = new StringBuilder(length);
+                    for (int i = 0; i < length ; i++) builder.append((char) pack.read());
+                    field.set(object, builder.toString());
+
+                } else if (field.isAnnotationPresent(SendField.class) || field.isAnnotationPresent(SendEveryField.class)) {
 
                     if (field.getType().equals(int.class)) {
                         pack.read(buffer = new byte[Integer.BYTES]);
@@ -170,15 +187,14 @@ public class Client {
 
                     } else if (field.getType().equals(String.class)) {
                         pack.read(buffer = new byte[Integer.BYTES]);
-                        int length = ByteBuffer.wrap(buffer).getInt();
-                        StringBuilder builder = new StringBuilder(length);
-                        for (int i = 0; i < length; i++) builder.append((char) pack.read());
-                        field.set(object, builder.toString());
+                        length = ByteBuffer.wrap(buffer).getInt();
+                        pack.read(buffer = new byte[length]);
+                        field.set(object, ByteUtil.asString(buffer, length));
 
                     } else if (depth <= recursionDepth) {
 
                         if (pack.read(buffer = new byte[Integer.BYTES]) != 4) throw new RuntimeException();
-                        int length = ByteBuffer.wrap(buffer).getInt();
+                        length = ByteUtil.asInt(buffer);
 
                         byte[] sb_bytes = new byte[length];
                         if (pack.read(sb_bytes) != length) throw new RuntimeException();
@@ -192,7 +208,7 @@ public class Client {
 
             return object;
 
-        } catch (IOException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+        } catch (IOException | IllegalAccessException | InvocationTargetException | InstantiationException | ClassNotFoundException e) {
             e.printStackTrace();
         }
 

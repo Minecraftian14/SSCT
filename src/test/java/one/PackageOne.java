@@ -1,14 +1,14 @@
 package one;
 
-import org.util.SendField;
+import org.util.annotations.SendField;
 
 public class PackageOne {
     @SendField
     public int one = 0;
     @SendField
-    public long two = 0L;
+    public long two = 2L;
     @SendField
-    public double three = 0.;
+    public double three = 5.;
     @SendField
     public String four = "Hello";
     @SendField
