@@ -1,7 +1,7 @@
 package org.util.listeners;
 
-import org.Client;
+import org.ConnectionHandle;
 
 public interface ClientJoinListener {
-    void clientJoined(Client client);
+    void clientJoined(ConnectionHandle client);
 }
