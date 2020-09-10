@@ -64,11 +64,9 @@ public class ConnectionHandle {
 
     private void readForAll() {
         Object object = read();
-        System.out.println(object.getClass().getName() + " " + object.getClass().getName().equals(SessionStart.class.getName()));
-        if (object.getClass().getName().equals(SessionStart.class.getName()))
-            latch.countDown();
-        else
-            objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
+
+        if (object.getClass().getName().equals(SessionStart.class.getName())) latch.countDown();
+        else objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
     }
 
     public void send(Object object) {

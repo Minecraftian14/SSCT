@@ -23,7 +23,7 @@ public class HostManager {
     private static int scanSize = 10;
 
     private ServerSocket socket;
-    private HashSet<ConnectionHandle> connections = new HashSet<>();
+    private ArrayList<ConnectionHandle> connections = new ArrayList<>();
 
     private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private Condition allowClientsUntil;
@@ -34,6 +34,11 @@ public class HostManager {
 
     public HostManager(long identity) throws IOException {
         this(identity, SimpleConditions.stopAfterSeconds(30));
+    }
+
+    public HostManager(long identity, final int expectedConnections) throws IOException {
+        this(identity);
+        allowClientsUntil = () -> getConnections().size() < expectedConnections;
     }
 
     public HostManager(long identity, Condition _allowClientsUntil) throws IOException {
@@ -138,7 +143,7 @@ public class HostManager {
         onInitializationListeners.add(listener);
     }
 
-    public HashSet<ConnectionHandle> getConnections() {
+    public ArrayList<ConnectionHandle> getConnections() {
         return connections;
     }
 
