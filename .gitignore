@@ -4,4 +4,4 @@ build/
 gradle/
 /src/main/java/org/Client.javaX
 /src/main/java/org/Server.javaX
-/src/tests/
+/src/test/
