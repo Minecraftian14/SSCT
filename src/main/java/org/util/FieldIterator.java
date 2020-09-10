@@ -23,9 +23,9 @@ public class FieldIterator {
     }
 
     private static Field[] refine(Class<?> clazz) {
-        HashSet<Field> list = new HashSet<>(Arrays.asList(clazz.getDeclaredFields()));
-        list.addAll(Arrays.asList(clazz.getFields()));
-        return list.toArray(Field[]::new);
+        HashSet<Field> set = new HashSet<>(Arrays.asList(clazz.getDeclaredFields()));
+        set.addAll(Arrays.asList(clazz.getFields()));
+        return (Field[]) set.toArray();
     }
 
 }
