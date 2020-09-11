@@ -35,7 +35,7 @@ public class HostManager {
     private ArrayList<Runnable> onInitializationListeners = new ArrayList<>();
 
     public HostManager(long identity) throws IOException {
-        this(identity, SimpleConditions.stopAfterSeconds(30));
+        this(identity, SimpleConditions.stopAfterSeconds(10));
     }
 
     public HostManager(long identity, final int expectedConnections) throws IOException {
@@ -87,18 +87,19 @@ public class HostManager {
 
     private void update() {
         if (allowClientsUntil.get()) return;
-        try {
+        System.out.println(allowClientsUntil.get());
+//        try {
             broadcaster.close();
-            socket.close();
+//            socket.close();
             executor.shutdownNow();
             clientJoinEventListeners.clear();
             clientJoinEventListeners = null;
             onInitializationListeners.forEach(Runnable::run);
             onInitializationListeners.clear();
             onInitializationListeners = null;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
     }
 
     public void send(Object object) {

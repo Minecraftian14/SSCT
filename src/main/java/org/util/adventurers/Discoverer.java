@@ -17,18 +17,18 @@ import java.util.function.Consumer;
 
 public class Discoverer {
 
-    private DatagramSocket socket;
+    private final DatagramSocket socket;
 
-    ScheduledExecutorService executor;
+    private ScheduledExecutorService executor;
     private Condition searchTill;
-    private ArrayList<ConnectionAddress> searchResults = new ArrayList<>();
-    private Consumer<List<ConnectionAddress>> searchFinishEvent;
+    private final ArrayList<ConnectionAddress> searchResults = new ArrayList<>();
+    private final Consumer<List<ConnectionAddress>> searchFinishEvent;
 
-    private byte[] identity_packet;
+    private final byte[] identity_packet;
     private final int port = 49152;
     private final int scanSize = 10;
 
-    private DatagramPacket receivedPacket = new DatagramPacket(new byte[Long.BYTES], Long.BYTES);
+    private final DatagramPacket receivedPacket = new DatagramPacket(new byte[Long.BYTES], Long.BYTES);
 
     public Discoverer(long identity) throws IOException {
         this(identity, null);
@@ -41,7 +41,7 @@ public class Discoverer {
     public Discoverer(long identity, Condition _searchTill, Consumer<List<ConnectionAddress>> consumer) throws IOException {
         socket = new DatagramSocket();
         socket.setBroadcast(true);
-        searchTill = _searchTill;
+        searchTill = _searchTill == null ? (() -> searchResults.size() < 1) : _searchTill;
         searchFinishEvent = consumer;
 
         identity_packet = ByteBuffer.allocate(Long.BYTES).putLong(identity).array();
@@ -71,13 +71,11 @@ public class Discoverer {
     }
 
     private void send(InetAddress address) throws IOException {
-        for (int p = port; p < port + scanSize; p++) {
+        for (int p = port; p < port + scanSize; p++)
             socket.send(new DatagramPacket(identity_packet, identity_packet.length, address, p));
-//            System.out.println("Packet sent to " + address.getHostAddress() + " at " + p);
-        }
     }
 
-    private void prepareToReceive() throws IOException {
+    private void prepareToReceive() {
         new Thread(this::receive).start();
 
         executor = Executors.newSingleThreadScheduledExecutor();
@@ -91,14 +89,16 @@ public class Discoverer {
     }
 
     private void receive() {
-        try {
-            socket.receive(receivedPacket);
-            String message = new String(receivedPacket.getData());
-//            System.out.println("Response received " + receivedPacket.getAddress().getHostAddress() + " at " + receivedPacket.getPort() + " saying " + message);
-            searchResults.add(new ConnectionAddress(receivedPacket.getAddress(), Integer.parseInt(message.trim())));
-        } catch (SocketException ignored) {
-        } catch (IOException e) {
-            e.printStackTrace();
+        while (!socket.isClosed()) {
+            try {
+                socket.receive(receivedPacket);
+                String message = new String(receivedPacket.getData());
+
+                searchResults.add(new ConnectionAddress(receivedPacket.getAddress(), Integer.parseInt(message.trim())));
+            } catch (SocketException ignored) {
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

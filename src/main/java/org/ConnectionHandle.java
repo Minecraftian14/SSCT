@@ -9,6 +9,7 @@ import org.util.listeners.ObjectReceivedListener;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -24,11 +25,13 @@ public class ConnectionHandle {
     private StreamReader reader;
     private StreamWriter writer;
 
-    private CountDownLatch latch;
     private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    private HashSet<ObjectReceivedListener> objectReceivedListeners = new HashSet<>();
 
-    private int recursionDepth = 10;
+    private HashSet<ObjectReceivedListener> objectReceivedListeners = new HashSet<>();
+    private ArrayList<Runnable> onInitializationListeners = new ArrayList<>();
+
+    private int refreshRate = 10;
+    private boolean isInitialised = false;
 
     ConnectionHandle(Socket _socket) {
         socket = _socket;
@@ -38,14 +41,11 @@ public class ConnectionHandle {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        isInitialised = true;
     }
 
     public ConnectionHandle(long identity) throws IOException, InterruptedException {
-        latch = new CountDownLatch(2);
-
-        discoverer = new Discoverer(identity, this::initiate);
-
-        latch.await();
+        discoverer = new Discoverer(identity, null, this::initiate);
     }
 
     private void initiate(List<ConnectionAddress> cas) {
@@ -55,23 +55,30 @@ public class ConnectionHandle {
                 reader = new StreamReader(socket.getInputStream());
                 writer = new StreamWriter(socket.getOutputStream());
 
-                executor.scheduleAtFixedRate(this::readForAll, 0, 10, TimeUnit.MILLISECONDS);
-
-                latch.countDown();
+                executor.scheduleAtFixedRate(this::readForAll, 0, refreshRate, TimeUnit.MILLISECONDS);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
+    // TODO replace SES with new Thread anyplace which involves reading
+
     private void readForAll() {
         Object object = read();
 
-        if (object.getClass().getName().equals(SessionStart.class.getName())) latch.countDown();
-        else objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
+        if (!isInitialised && object.getClass().getName().equals(SessionStart.class.getName())) {
+            isInitialised = true;
+            onInitializationListeners.forEach(Runnable::run);
+
+        } else objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
     }
 
     public void send(Object object) {
+        if (!isInitialised) {
+            System.out.println("Premature Method Calling: Client not yet initialised");
+            return;
+        }
         writer.write(object);
     }
 
@@ -85,6 +92,10 @@ public class ConnectionHandle {
 
     public void addObjectReceivedListener(ObjectReceivedListener listener) {
         objectReceivedListeners.add(listener);
+    }
+
+    public void addOnInitializationListeners(Runnable listener) {
+        onInitializationListeners.add(listener);
     }
 
     public void close() {
@@ -103,5 +114,9 @@ public class ConnectionHandle {
     @Override
     public boolean equals(Object obj) {
         return socket.equals(obj);
+    }
+
+    public void setRefreshRate(int refreshRate) {
+        this.refreshRate = refreshRate;
     }
 }

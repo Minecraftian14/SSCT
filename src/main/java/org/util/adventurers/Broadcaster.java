@@ -13,17 +13,17 @@ import java.util.concurrent.TimeUnit;
 
 public class Broadcaster {
 
-    private DatagramSocket socket;
+    private final DatagramSocket socket;
 
-    private Condition searchTill;
+    private final Condition searchTill;
     private ScheduledExecutorService executor;
 
-    private byte[] identity_packet;
+    private final byte[] identity_packet;
     private final int port = 49152;
     private final int scanSize = 10;
     private final String message;
 
-    private DatagramPacket receivedPacket = new DatagramPacket(new byte[Long.BYTES], Long.BYTES);
+    private final DatagramPacket receivedPacket = new DatagramPacket(new byte[Long.BYTES], Long.BYTES);
 
     public Broadcaster(long identity, String message) throws IOException {
         this(identity, SimpleConditions.stopAfterSeconds(60), message);
@@ -57,28 +57,27 @@ public class Broadcaster {
 
         executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(() -> {
-            if (!searchTill.get()) {
-                socket.close();
-                executor.shutdownNow();
-            }
+            if (!searchTill.get()) close();
         }, 0, 1, TimeUnit.SECONDS);
     }
 
     private void receive() {
-        try {
-            socket.receive(receivedPacket);
+        while (!socket.isClosed()) {
+            try {
+                socket.receive(receivedPacket);
 
-            if (Arrays.equals(receivedPacket.getData(), identity_packet))
-                send(receivedPacket.getAddress(), receivedPacket.getPort());
-        } catch (SocketException ignored) {
-        } catch (IOException e) {
-            e.printStackTrace();
+                if (Arrays.equals(receivedPacket.getData(), identity_packet))
+                    send(receivedPacket.getAddress(), receivedPacket.getPort());
+
+            } catch (SocketException ignored) {
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void send(InetAddress address, int port) throws IOException {
         socket.send(new DatagramPacket(message.getBytes(), message.length(), address, port));
-//        System.out.println("Packet sent to " + address.getHostAddress() + " at " + port + " with message " + message);
     }
 
     public void close() {
