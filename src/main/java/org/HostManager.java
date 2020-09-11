@@ -19,6 +19,8 @@ import java.util.function.Predicate;
 
 public class HostManager {
 
+    Broadcaster broadcaster;
+
     private static int port = 50152;
     private static int scanSize = 10;
 
@@ -44,7 +46,7 @@ public class HostManager {
     public HostManager(long identity, Condition _allowClientsUntil) throws IOException {
         socket = establish(port);
         allowClientsUntil = _allowClientsUntil;
-        Broadcaster broadcaster = new Broadcaster(identity, "" + port);
+        broadcaster = new Broadcaster(identity, "" + port);
         onInitializationListeners.add(0, () -> {
             executor = Executors.newSingleThreadScheduledExecutor();
             executor.scheduleAtFixedRate(this::read, 0, 10, TimeUnit.MILLISECONDS);
@@ -86,6 +88,7 @@ public class HostManager {
     private void update() {
         if (allowClientsUntil.get()) return;
         try {
+            broadcaster.close();
             socket.close();
             executor.shutdownNow();
             clientJoinEventListeners.clear();

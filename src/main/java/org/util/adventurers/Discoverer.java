@@ -19,6 +19,7 @@ public class Discoverer {
 
     private DatagramSocket socket;
 
+    ScheduledExecutorService executor;
     private Condition searchTill;
     private ArrayList<ConnectionAddress> searchResults = new ArrayList<>();
     private Consumer<List<ConnectionAddress>> searchFinishEvent;
@@ -77,16 +78,14 @@ public class Discoverer {
     }
 
     private void prepareToReceive() throws IOException {
-        new Thread(() -> {
-            while (!socket.isClosed()) receive();
-        }).start();
+        new Thread(this::receive).start();
 
-        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-        service.scheduleAtFixedRate(() -> {
+        executor = Executors.newSingleThreadScheduledExecutor();
+        executor.scheduleAtFixedRate(() -> {
             if (!searchTill.get()) {
                 socket.close();
                 searchFinishEvent.accept(searchResults);
-                service.shutdownNow();
+                executor.shutdownNow();
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
@@ -101,6 +100,12 @@ public class Discoverer {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void close() {
+        executor.shutdownNow();
+        if (!socket.isClosed())
+            socket.close();
     }
 
 }

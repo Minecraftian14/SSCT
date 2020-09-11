@@ -16,6 +16,7 @@ public class Broadcaster {
     private DatagramSocket socket;
 
     private Condition searchTill;
+    private ScheduledExecutorService executor;
 
     private byte[] identity_packet;
     private final int port = 49152;
@@ -52,16 +53,13 @@ public class Broadcaster {
     }
 
     private void startBroadcast() {
-        new Thread(() -> {
-            while (!socket.isClosed()) receive();
-        }).start();
+        new Thread(this::receive).start();
 
-        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-        service.scheduleAtFixedRate(() -> {
+        executor = Executors.newSingleThreadScheduledExecutor();
+        executor.scheduleAtFixedRate(() -> {
             if (!searchTill.get()) {
                 socket.close();
-//                searchFinishEvent.accept(searchResults);
-                service.shutdownNow();
+                executor.shutdownNow();
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
@@ -69,9 +67,6 @@ public class Broadcaster {
     private void receive() {
         try {
             socket.receive(receivedPacket);
-
-//            System.out.println("Packet received from: " + receivedPacket.getAddress().getHostAddress() + receivedPacket.getPort());
-//            System.out.println("Packet data: " + ByteBuffer.wrap(receivedPacket.getData()).getLong());
 
             if (Arrays.equals(receivedPacket.getData(), identity_packet))
                 send(receivedPacket.getAddress(), receivedPacket.getPort());
@@ -84,6 +79,12 @@ public class Broadcaster {
     private void send(InetAddress address, int port) throws IOException {
         socket.send(new DatagramPacket(message.getBytes(), message.length(), address, port));
 //        System.out.println("Packet sent to " + address.getHostAddress() + " at " + port + " with message " + message);
+    }
+
+    public void close() {
+        executor.shutdownNow();
+        if (!socket.isClosed())
+            socket.close();
     }
 
 }

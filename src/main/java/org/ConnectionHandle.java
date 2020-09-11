@@ -18,6 +18,8 @@ import java.util.concurrent.TimeUnit;
 
 public class ConnectionHandle {
 
+    private Discoverer discoverer;
+
     private Socket socket;
     private StreamReader reader;
     private StreamWriter writer;
@@ -41,7 +43,7 @@ public class ConnectionHandle {
     public ConnectionHandle(long identity) throws IOException, InterruptedException {
         latch = new CountDownLatch(2);
 
-        new Discoverer(identity, this::initiate);
+        discoverer = new Discoverer(identity, this::initiate);
 
         latch.await();
     }
@@ -86,6 +88,7 @@ public class ConnectionHandle {
     }
 
     public void close() {
+        discoverer.close();
         executor.shutdownNow();
         try {
             reader.close();
