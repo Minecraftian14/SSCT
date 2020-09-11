@@ -3,6 +3,7 @@ package org;
 import org.util.adventurers.Broadcaster;
 import org.util.Condition;
 import org.util.SessionStart;
+import org.util.listeners.AddressedObjectReceived;
 import org.util.listeners.ClientJoinListener;
 import org.util.listeners.ObjectReceivedListener;
 
@@ -31,7 +32,7 @@ public class HostManager {
     private Condition allowClientsUntil;
 
     private HashSet<ClientJoinListener> clientJoinEventListeners = new HashSet<>();
-    private HashSet<ObjectReceivedListener> objectReceivedListeners = new HashSet<>();
+    private HashSet<AddressedObjectReceived> objectReceivedListeners = new HashSet<>();
     private ArrayList<Runnable> onInitializationListeners = new ArrayList<>();
 
     public HostManager(long identity) throws IOException {
@@ -132,14 +133,14 @@ public class HostManager {
 
     private void read(ConnectionHandle connectionHandle) {
         Object object = connectionHandle.read();
-        objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object));
+        objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object, connectionHandle));
     }
 
     public void addClientJoinListener(ClientJoinListener listener) {
         clientJoinEventListeners.add(listener);
     }
 
-    public void addObjectReceivedListener(ObjectReceivedListener listener) {
+    public void addObjectReceivedListener(AddressedObjectReceived listener) {
         objectReceivedListeners.add(listener);
     }
 
