@@ -5,7 +5,6 @@ import org.util.Condition;
 import org.util.SessionStart;
 import org.util.listeners.AddressedObjectReceived;
 import org.util.listeners.ClientJoinListener;
-import org.util.listeners.ObjectReceivedListener;
 
 import java.io.IOException;
 import java.net.BindException;
@@ -13,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +29,7 @@ public class HostManager {
     private ArrayList<ConnectionHandle> connections = new ArrayList<>();
 
     private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    private ExecutorService poolExecutor;
     private Condition allowClientsUntil;
 
     private HashSet<ClientJoinListener> clientJoinEventListeners = new HashSet<>();
@@ -49,8 +50,7 @@ public class HostManager {
         allowClientsUntil = _allowClientsUntil;
         broadcaster = new Broadcaster(identity, "" + port);
         onInitializationListeners.add(0, () -> {
-            executor = Executors.newSingleThreadScheduledExecutor();
-            executor.scheduleAtFixedRate(this::read, 0, 10, TimeUnit.MILLISECONDS);
+            initiateReadThread();
             send(new SessionStart());
         });
     }
@@ -129,13 +129,20 @@ public class HostManager {
                     connection.send(object);
     }
 
-    private void read() {
-        connections.forEach(this::read);
+//    private void read() {
+//        connections.forEach(this::read);
+//    }
+
+    private void initiateReadThread() {
+        poolExecutor = Executors.newFixedThreadPool(connections.size());
+        for (ConnectionHandle connection : connections) poolExecutor.submit(() -> readInf(connection));
     }
 
-    private void read(ConnectionHandle connectionHandle) {
-        Object object = connectionHandle.read();
-        objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object, connectionHandle));
+    private void readInf(ConnectionHandle connectionHandle) {
+        while (true) {
+            Object object = connectionHandle.read();
+            objectReceivedListeners.forEach(objectReceivedListener -> objectReceivedListener.ObjectReceived(object, connectionHandle));
+        }
     }
 
     public void addClientJoinListener(ClientJoinListener listener) {
@@ -156,6 +163,7 @@ public class HostManager {
 
     public void close() {
         executor.shutdownNow();
+        poolExecutor.shutdownNow();
         connections.forEach(ConnectionHandle::close);
         try {
             socket.close();
