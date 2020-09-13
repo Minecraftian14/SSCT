@@ -77,7 +77,10 @@ public class HostManager {
         while (!socket.isClosed()) {
             try {
                 ConnectionHandle connection = new ConnectionHandle(socket.accept());
-                clientJoinEventListeners.forEach(clientJoinListener -> clientJoinListener.clientJoined(connection));
+                System.out.println(clientJoinEventListeners);
+                clientJoinEventListeners.forEach(clientJoinListener -> {
+                    clientJoinListener.clientJoined(connection);
+                });
                 connections.add(connection);
             } catch (SocketException ignored) {
             } catch (IOException e) {
@@ -88,19 +91,18 @@ public class HostManager {
 
     private void update() {
         if (allowClientsUntil.get()) return;
-        System.out.println(allowClientsUntil.get());
-//        try {
-            broadcaster.close();
-//            socket.close();
-            executor.shutdownNow();
-            clientJoinEventListeners.clear();
-            clientJoinEventListeners = null;
-            onInitializationListeners.forEach(Runnable::run);
-            onInitializationListeners.clear();
-            onInitializationListeners = null;
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+        broadcaster.close();
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        executor.shutdownNow();
+//            clientJoinEventListeners.clear();
+//            clientJoinEventListeners = null;
+        onInitializationListeners.forEach(Runnable::run);
+        onInitializationListeners.clear();
+        onInitializationListeners = null;
     }
 
     public void send(Object object) {

@@ -1,0 +1,38 @@
+package one;
+
+import org.util.annotations.SendField;
+
+public class PackageOne {
+    @SendField
+    public int one = 0;
+    @SendField
+    public long two = 2L;
+    @SendField
+    public double three = 5.;
+    @SendField
+    public String four = "Hello";
+    @SendField
+    public boolean five = true;
+
+    public PackageOne() {
+    }
+
+    public PackageOne(int one, long two, double three, String four, boolean five) {
+        this.one = one;
+        this.two = two;
+        this.three = three;
+        this.four = four;
+        this.five = five;
+    }
+
+    @Override
+    public String toString() {
+        return "PackageOne{" +
+                "one=" + one +
+                ", two=" + two +
+                ", three=" + three +
+                ", four='" + four + '\'' +
+                ", five=" + five +
+                '}';
+    }
+}

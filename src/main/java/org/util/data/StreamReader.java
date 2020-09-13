@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class StreamReader implements Closeable {
 
@@ -105,10 +106,10 @@ public class StreamReader implements Closeable {
         return trier.CatchAndReturn(() -> streamReader.readObject(10), null);
     }
 
-    private Object readObject(int depth) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
+    private Object readObject(int depth) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException, NoSuchMethodException {
 
         Class<?> cls = Class.forName(readString());
-        Object object = cls.getConstructors()[0].newInstance();
+        Object object = Arrays.stream(cls.getConstructors()).filter(constructor -> constructor.getParameterCount() == 0).findFirst().orElseThrow(NoSuchMethodException::new).newInstance();
 
         FieldIterator.foreach(cls, field -> trier.Catch(() -> parseField(object, field, depth)));
 
@@ -167,4 +168,5 @@ public class StreamReader implements Closeable {
     public void close() throws IOException {
         closer.close();
     }
+
 }

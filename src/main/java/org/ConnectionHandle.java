@@ -8,6 +8,7 @@ import org.util.data.StreamWriter;
 import org.util.listeners.ObjectReceivedListener;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -56,6 +57,7 @@ public class ConnectionHandle {
                 writer = new StreamWriter(socket.getOutputStream());
 
                 executor.scheduleAtFixedRate(this::readForAll, 0, refreshRate, TimeUnit.MILLISECONDS);
+            } catch (ConnectException ignored) {
             } catch (IOException e) {
                 e.printStackTrace();
             }
