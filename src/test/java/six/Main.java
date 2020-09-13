@@ -49,6 +49,14 @@ public class Main {
                 }, 0, 1, TimeUnit.SECONDS));
         }
 
+        manager.addOnInitializationListeners(() -> {
+            manager.getConnections().forEach(connectionHandle -> {
+                manager.getConnections().forEach(connectionHandle1 -> {
+                    System.out.println(connectionHandle.equals(connectionHandle1));
+                });
+            });
+        });
+
     }
 
     public static void both(int cc) throws IOException, InterruptedException {

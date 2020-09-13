@@ -124,8 +124,8 @@ public class HostManager {
 
     public void sendToAllExcept(Object object, ConnectionHandle... blacklist) {
         for (ConnectionHandle connection : connections)
-            for (ConnectionHandle wlitem : blacklist)
-                if (!wlitem.equals(connection))
+            for (ConnectionHandle blitem : blacklist)
+                if (!blitem.equals(connection))
                     connection.send(object);
     }
 

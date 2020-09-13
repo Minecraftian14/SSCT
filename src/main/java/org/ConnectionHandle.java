@@ -113,10 +113,10 @@ public class ConnectionHandle {
         objectReceivedListeners = null;
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        return socket.equals(obj);
-    }
+//    @Override
+//    public boolean equals(Object obj) {
+//        return socket.equals(obj);
+//    }
 
     public void setRefreshRate(int refreshRate) {
         this.refreshRate = refreshRate;
