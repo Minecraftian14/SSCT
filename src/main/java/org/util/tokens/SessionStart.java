@@ -1,4 +1,4 @@
-package org.util;
+package org.util.tokens;
 
 public class SessionStart {
 }

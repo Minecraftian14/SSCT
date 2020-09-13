@@ -8,6 +8,7 @@ public class Client {
 
     ConnectionHandle handle;
     GUI gui = new GUI();
+    int m = 0;
 
     public Client() throws IOException, InterruptedException {
         handle = new ConnectionHandle(125325421235L);
@@ -19,7 +20,7 @@ public class Client {
     private void init() {
         System.out.println("CLIENT: Initialised");
         gui.but.addActionListener(e -> {
-            handle.send(new Counter(Integer.parseInt(gui.txt.getText())));
+            handle.send(new Counter(m++));
         });
         gui.frame.setVisible(true);
     }

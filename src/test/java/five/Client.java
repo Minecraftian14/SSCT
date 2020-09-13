@@ -10,6 +10,7 @@ public class Client {
     ConnectionHandle handle;
     GUI gui = new GUI();
 
+
     public Client() throws IOException, InterruptedException {
         handle = new ConnectionHandle(125325421235L);
 

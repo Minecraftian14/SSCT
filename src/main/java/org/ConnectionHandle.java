@@ -2,7 +2,7 @@ package org;
 
 import org.util.adventurers.Discoverer;
 import org.util.ConnectionAddress;
-import org.util.SessionStart;
+import org.util.tokens.SessionStart;
 import org.util.data.StreamReader;
 import org.util.data.StreamWriter;
 import org.util.listeners.ObjectReceivedListener;
@@ -13,7 +13,6 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
